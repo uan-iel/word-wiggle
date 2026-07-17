@@ -14,18 +14,17 @@
     "android:add": "npm run build && cap add android",
     "android:sync": "npm run build && cap sync android"
   },
-  "dependencies": {
+  "dependencies": {},
+  "devDependencies": {
     "@capacitor/android": "^8.4.2",
     "@capacitor/core": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
     "@vitejs/plugin-react": "latest",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
     "react": "latest",
     "react-dom": "latest",
     "vite": "latest"
-  },
-  "devDependencies": {
-    "@capacitor/cli": "^8.4.2",
-    "electron": "^43.1.1",
-    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "com.uaniel.wordwiggle",
