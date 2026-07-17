@@ -1,18 +1,48 @@
 {
   "name": "word-wiggle",
+  "description": "A playful English spelling snake game for children.",
+  "author": "uan-iel",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "build:mac": "npm run build && electron-builder --mac dmg --universal --publish never",
+    "android:add": "npm run build && cap add android",
+    "android:sync": "npm run build && cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "vite": "latest"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.2",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.uaniel.wordwiggle",
+    "productName": "Word Wiggle",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "electron/**/*", "package.json"],
+    "mac": {
+      "category": "public.app-category.education",
+      "target": [{ "target": "dmg", "arch": ["universal"] }],
+      "artifactName": "Word-Wiggle-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "Word Wiggle ${version}",
+      "contents": [
+        { "x": 150, "y": 180 },
+        { "x": 430, "y": 180, "type": "link", "path": "/Applications" }
+      ]
+    }
+  }
 }

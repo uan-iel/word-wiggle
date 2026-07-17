@@ -1,5 +1,7 @@
 node_modules/
 dist/
-.DS_Store
-*.log
+release/
+android/
 tmp/
+*.log
+.DS_Store

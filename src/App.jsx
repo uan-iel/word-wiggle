@@ -329,6 +329,7 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
   const current = words[index];
   const startFreeControl = (event) => {
     if (paused || levelComplete || event.target.closest?.('button,.spell-ribbon,.feedback-card')) return;
+    event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
     event.currentTarget.setPointerCapture(event.pointerId);
     clearTimeout(controlTimerRef.current);
@@ -373,7 +374,7 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
         <div className="tiny-tip">💡 吃错不会重来：软糖蛇会吐掉错字母，并给你一点提示。</div>
       </aside>
       <section className="arena-wrap">
-        <div className={`arena ${feedback?.type || ''}`} onPointerDown={startFreeControl} onPointerMove={moveFreeControl} onPointerUp={endFreeControl} onPointerCancel={endFreeControl} onContextMenu={event=>event.preventDefault()}>
+        <div className={`arena ${feedback?.type || ''}`} onPointerDown={startFreeControl} onPointerMove={moveFreeControl} onPointerUp={endFreeControl} onPointerCancel={endFreeControl} onContextMenu={event=>event.preventDefault()} onDragStart={event=>event.preventDefault()}>
           <div className="arena-clouds" aria-hidden="true"><i/><i/><i/></div>
           <div className="spell-ribbon"><span>拼一拼</span><div>
             {current?.letters.split('').map((letter, i) => <b key={i} className={i < typed.length ? 'filled' : i === typed.length ? 'next' : ''}>{i < typed.length ? letter.toUpperCase() : '·'}</b>)}

@@ -1,0 +1,8 @@
+{
+  "appId": "com.uaniel.wordwiggle",
+  "appName": "Word Wiggle",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#fff9e9"
+  }
+}
