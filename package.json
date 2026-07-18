@@ -3,7 +3,7 @@
   "description": "A playful English spelling snake game for children.",
   "author": "uan-iel",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.3.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -29,18 +29,39 @@
   "build": {
     "appId": "com.uaniel.wordwiggle",
     "productName": "Word Wiggle",
-    "directories": { "output": "release" },
-    "files": ["dist/**/*", "electron/**/*", "package.json"],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
     "mac": {
       "category": "public.app-category.education",
-      "target": [{ "target": "dmg", "arch": ["universal"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
       "artifactName": "Word-Wiggle-${version}-mac-${arch}.${ext}"
     },
     "dmg": {
       "title": "Word Wiggle ${version}",
       "contents": [
-        { "x": 150, "y": 180 },
-        { "x": 430, "y": 180, "type": "link", "path": "/Applications" }
+        {
+          "x": 150,
+          "y": 180
+        },
+        {
+          "x": 430,
+          "y": 180,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     }
   }

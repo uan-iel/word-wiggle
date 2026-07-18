@@ -7,10 +7,15 @@ import { learningSummary, loadLearningProgress, markWordMastered, recordWordComp
 const W = 1000;
 const H = 650;
 const STEP = 22;
-const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-const opposite = (a, b) => (a === 'up' && b === 'down') || (a === 'down' && b === 'up') || (a === 'left' && b === 'right') || (a === 'right' && b === 'left');
+const KEY_DIRECTIONS = { up: {x:0,y:-1}, down: {x:0,y:1}, left: {x:-1,y:0}, right: {x:1,y:0} };
 const colors = ['#ff6f61','#ffb703','#60c6ff','#7bcf82','#b986ee','#ff75b5','#56c9b4'];
 const VOCAB_OVERRIDES_KEY = 'wiggleVocabOverridesV1';
+const SPEED_KEY = 'wiggleGameSpeedV1';
+const clampSpeed = (value) => Math.min(3, Math.max(.5, Math.round(Number(value) * 10) / 10));
+const normalizeDirection = ({x, y}) => {
+  const length = Math.hypot(x, y);
+  return length > .001 ? {x:x / length, y:y / length} : null;
+};
 const safeBubbleSlots = () => {
   const slots = [];
   for (let y = 125; y <= 615; y += 122) {
@@ -67,6 +72,8 @@ function App() {
   const [worldIndex, setWorldIndex] = useState(0);
   const [levelIndex, setLevelIndex] = useState(0);
   const [soundOn, setSoundOn] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [speedMultiplier, setSpeedMultiplier] = useState(() => clampSpeed(localStorage.getItem(SPEED_KEY) || 1));
   const [reviewWords, setReviewWords] = useState([]);
   const [saved, setSaved] = useState(() => Number(localStorage.getItem('wiggleStars') || 0));
   const [vocabOverrides, setVocabOverrides] = useState(() => {
@@ -94,6 +101,12 @@ function App() {
   }, [vocabOverrides]);
 
   const persistOverrides = (next) => { setVocabOverrides(next); localStorage.setItem(VOCAB_OVERRIDES_KEY, JSON.stringify(next)); };
+  const updateSpeed = (value) => {
+    const next = clampSpeed(value);
+    setSpeedMultiplier(next);
+    localStorage.setItem(SPEED_KEY, String(next));
+  };
+  const settings = settingsOpen && <SettingsModal speed={speedMultiplier} onSpeedChange={updateSpeed} soundOn={soundOn} onSoundChange={setSoundOn} onClose={() => setSettingsOpen(false)}/>;
   if (screen === 'admin') return <VocabAdmin worlds={WORLDS} overrides={vocabOverrides} onClose={() => setScreen('home')}
     onSave={(id, patch) => persistOverrides({...vocabOverrides, [id]:patch})}
     onReset={(id) => { const next={...vocabOverrides}; delete next[id]; persistOverrides(next); }}
@@ -104,21 +117,21 @@ function App() {
     onMarkMastered={(id) => setLearningProgress(previous => { const next=markWordMastered(previous,id); localStorage.setItem(LEARNING_PROGRESS_KEY,JSON.stringify(next)); return next; })}/>;
   if (screen === 'reviewGame') {
     const reviewWorld={id:'review',name:'今日复习',color:'#25a879',soft:'#d8f6df',levels:[reviewWords]};
-    return <Game key={`review-${reviewWords.map(item=>item.id).join('-')}`} world={reviewWorld} overrides={vocabOverrides} levelIndex={0} soundOn={soundOn} setSoundOn={setSoundOn} onRecordWord={recordLearning} onHome={() => setScreen('review')} onNext={() => setScreen('review')} onEarn={(amount=10)=>{const next=saved+amount;setSaved(next);localStorage.setItem('wiggleStars',String(next));}} isReview/>;
+    return <><Game key={`review-${reviewWords.map(item=>item.id).join('-')}`} world={reviewWorld} overrides={vocabOverrides} levelIndex={0} soundOn={soundOn} setSoundOn={setSoundOn} speedMultiplier={speedMultiplier} settingsOpen={settingsOpen} onOpenSettings={() => setSettingsOpen(true)} onRecordWord={recordLearning} onHome={() => setScreen('review')} onNext={() => setScreen('review')} onEarn={(amount=10)=>{const next=saved+amount;setSaved(next);localStorage.setItem('wiggleStars',String(next));}} isReview/>{settings}</>;
   }
 
   const begin = (wi, li) => { setWorldIndex(wi); setLevelIndex(li); setScreen('game'); };
-  if (screen === 'game') return <Game key={`${worldIndex}-${levelIndex}`} world={WORLDS[worldIndex]} overrides={vocabOverrides} worldIndex={worldIndex} levelIndex={levelIndex} soundOn={soundOn} setSoundOn={setSoundOn} onRecordWord={recordLearning} onHome={() => setScreen('home')} onNext={() => {
+  if (screen === 'game') return <><Game key={`${worldIndex}-${levelIndex}`} world={WORLDS[worldIndex]} overrides={vocabOverrides} worldIndex={worldIndex} levelIndex={levelIndex} soundOn={soundOn} setSoundOn={setSoundOn} speedMultiplier={speedMultiplier} settingsOpen={settingsOpen} onOpenSettings={() => setSettingsOpen(true)} onRecordWord={recordLearning} onHome={() => setScreen('home')} onNext={() => {
     const world = WORLDS[worldIndex];
     if (levelIndex + 1 < world.levels.length) setLevelIndex(levelIndex + 1);
     else { setScreen('home'); setWorldIndex((worldIndex + 1) % WORLDS.length); setLevelIndex(0); }
-  }} onEarn={(amount = 10) => { const next = saved + amount; setSaved(next); localStorage.setItem('wiggleStars', String(next)); }} />;
+  }} onEarn={(amount = 10) => { const next = saved + amount; setSaved(next); localStorage.setItem('wiggleStars', String(next)); }} />{settings}</>;
 
   return <main className="home-shell">
     <div className="sky-doodles" aria-hidden="true"><i>ABC</i><i>★</i><i>hello!</i><i>✿</i><i>123</i></div>
     <header className="home-nav">
       <div className="mini-brand"><span>W</span> Word Wiggle</div>
-      <div className="home-tools"><button className="review-entry" onClick={() => setScreen('review')}>🔁 今日复习{progressSummary.due>0&&<b>{progressSummary.due}</b>}</button><button onClick={() => setScreen('admin')}>⚙ 词库校对</button><div className="star-bank">⭐ <strong>{saved}</strong></div></div>
+      <div className="home-tools"><button className="review-entry" onClick={() => setScreen('review')}>🔁 今日复习{progressSummary.due>0&&<b>{progressSummary.due}</b>}</button><button onClick={() => setSettingsOpen(true)}>⚙ 总设置</button><button onClick={() => setScreen('admin')}>✎ 词库校对</button><div className="star-bank">⭐ <strong>{saved}</strong></div></div>
     </header>
     <section className="hero">
       <div className="hero-copy">
@@ -149,7 +162,26 @@ function App() {
       </div>
     </section>
     <footer>词汇内容选自《KET 备考必备 1500 词（带音标版）》 · PDF 正文实际提取 {VOCAB_STATS.extractedTotal} 条 · 快乐学，记得牢</footer>
+    {settings}
   </main>;
+}
+
+function SettingsModal({ speed, onSpeedChange, soundOn, onSoundChange, onClose }) {
+  const speedLabel = speed < .8 ? '慢慢探索' : speed < 1.3 ? '舒适巡航' : speed < 2 ? '活力加速' : speed < 2.6 ? '闪电冲刺' : '超级旋风';
+  return <div className="settings-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title" onPointerDown={event => event.target === event.currentTarget && onClose()}>
+    <section className="settings-card">
+      <button className="settings-close" onClick={onClose} aria-label="关闭总设置">×</button>
+      <div className="settings-heading"><span>GAME CONTROL</span><h2 id="settings-title">总设置</h2><p>调出最适合你的软糖蛇手感</p></div>
+      <div className="speed-setting">
+        <div className="setting-title"><span>🏎️</span><div><b>移动速度</b><small>可按 0.1 倍精细调整</small></div><strong>{speed.toFixed(1)}×</strong></div>
+        <input type="range" min="0.5" max="3" step="0.1" value={speed} onChange={event => onSpeedChange(event.target.value)} aria-label="贪吃蛇移动速度" style={{'--speed-progress':`${(speed - .5) / 2.5 * 100}%`}}/>
+        <div className="speed-scale"><span>0.5×</span><b>{speedLabel}</b><span>3.0×</span></div>
+        <div className="speed-presets">{[.5,1,1.5,2,3].map(value => <button key={value} className={speed === value ? 'active' : ''} onClick={() => onSpeedChange(value)}>{value.toFixed(1)}×</button>)}</div>
+      </div>
+      <div className="sound-setting"><span>🎵</span><div><b>游戏音效</b><small>拼对和纠错提示音</small></div><button className={soundOn ? 'on' : ''} onClick={() => onSoundChange(!soundOn)} aria-pressed={soundOn}><i/>{soundOn ? '开启' : '关闭'}</button></div>
+      <div className="settings-tip">🕹️ 摇杆现在支持 360° 自由转向，拖向哪里就游向哪里。</div>
+    </section>
+  </div>;
 }
 
 function LearningSnapshot({ summary }) {
@@ -164,7 +196,7 @@ function LearningSnapshot({ summary }) {
   </section>;
 }
 
-function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNext, onEarn, onRecordWord, isReview=false }) {
+function Game({ world, overrides, levelIndex, soundOn, setSoundOn, speedMultiplier, settingsOpen, onOpenSettings, onHome, onNext, onEarn, onRecordWord, isReview=false }) {
   const words = useMemo(() => world.levels[levelIndex].map(item => {
     const itemId = item.id || `${world.id}:${item.sourceIndex}`;
     const override = overrides[itemId] || {};
@@ -176,8 +208,8 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
   const [done, setDone] = useState([]);
   const [bubbles, setBubbles] = useState(() => makeBubbles(words, 0));
   const [snake, setSnake] = useState(() => Array.from({length: 5}, (_, i) => ({x: 440 - i * STEP, y: 330})));
-  const [direction, setDirection] = useState('right');
-  const directionRef = useRef('right');
+  const [direction, setDirection] = useState({x:1,y:0});
+  const directionRef = useRef({x:1,y:0});
   const [feedback, setFeedback] = useState(null);
   const [mistakeStreak, setMistakeStreak] = useState(0);
   const [mistakes, setMistakes] = useState(0);
@@ -187,6 +219,7 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
   const [levelComplete, setLevelComplete] = useState(false);
   const [paused, setPaused] = useState(false);
   const [freeControl, setFreeControl] = useState(null);
+  const freeControlRef = useRef(null);
   const lockedRef = useRef(false);
   const collisionGateRef = useRef(false);
   const feedbackTimerRef = useRef(null);
@@ -197,8 +230,10 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
   const playRef = Sound({ soundOn });
 
   const setDir = useCallback((next) => {
-    if (!DIRS[next] || opposite(directionRef.current, next)) return;
-    directionRef.current = next; setDirection(next);
+    const vector = normalizeDirection(typeof next === 'string' ? KEY_DIRECTIONS[next] : next);
+    if (!vector) return;
+    directionRef.current = vector;
+    setDirection(vector);
   }, []);
 
   useEffect(() => {
@@ -216,18 +251,58 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
     clearTimeout(slowTimerRef.current);
     clearTimeout(collisionTimerRef.current);
     clearTimeout(controlTimerRef.current);
+    document.documentElement.classList.remove('joystick-dragging');
   }, []);
 
   useEffect(() => {
-    if (paused || levelComplete) return;
+    const moveAnywhere = (event) => {
+      const previous = freeControlRef.current;
+      if (!previous || !previous.active || previous.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      const dx = event.clientX - previous.originClientX;
+      const dy = event.clientY - previous.originClientY;
+      const length = Math.hypot(dx,dy);
+      if (length > 9) setDir({x:dx,y:dy});
+      const scale = length > 70 ? 70 / length : 1;
+      const next = {...previous,knobX:dx*scale,knobY:dy*scale};
+      freeControlRef.current = next;
+      setFreeControl(next);
+    };
+    const finishAnywhere = (event) => {
+      const previous = freeControlRef.current;
+      if (!previous || (event?.pointerId != null && previous.pointerId !== event.pointerId)) return;
+      const next = {...previous,active:false};
+      freeControlRef.current = next;
+      setFreeControl(next);
+      document.documentElement.classList.remove('joystick-dragging');
+      clearTimeout(controlTimerRef.current);
+      controlTimerRef.current = setTimeout(() => {
+        freeControlRef.current = null;
+        setFreeControl(null);
+      }, 180);
+    };
+    window.addEventListener('pointermove', moveAnywhere, {passive:false});
+    window.addEventListener('pointerup', finishAnywhere);
+    window.addEventListener('pointercancel', finishAnywhere);
+    window.addEventListener('blur', finishAnywhere);
+    return () => {
+      window.removeEventListener('pointermove', moveAnywhere);
+      window.removeEventListener('pointerup', finishAnywhere);
+      window.removeEventListener('pointercancel', finishAnywhere);
+      window.removeEventListener('blur', finishAnywhere);
+    };
+  }, [setDir]);
+
+  useEffect(() => {
+    if (paused || levelComplete || settingsOpen) return;
     let frame;
     let lastTime = performance.now();
     const animate = (now) => {
       const delta = Math.min((now - lastTime) / 1000, .04);
       lastTime = now;
       setSnake(prev => {
-        const [dx, dy] = DIRS[directionRef.current];
-        const distance = (slowMotion ? 52 : 82) * delta;
+        const {x:dx, y:dy} = directionRef.current;
+        const distance = (slowMotion ? 52 : 82) * speedMultiplier * delta;
         const raw = {x: prev[0].x + dx * distance, y: prev[0].y + dy * distance};
         const wrapped = raw.x < 20 || raw.x > W - 20 || raw.y < 20 || raw.y > H - 20;
         const head = {x: raw.x < 20 ? W - 20 : raw.x > W - 20 ? 20 : raw.x, y: raw.y < 20 ? H - 20 : raw.y > H - 20 ? 20 : raw.y};
@@ -324,34 +399,18 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
     };
     frame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frame);
-  }, [bubbles, index, typed, words, paused, levelComplete, mistakeStreak, mistakes, combo, slowMotion, onEarn, onRecordWord, playRef, world.id, world.name]);
+  }, [bubbles, index, typed, words, paused, levelComplete, settingsOpen, mistakeStreak, mistakes, combo, slowMotion, speedMultiplier, onEarn, onRecordWord, playRef, world.id, world.name]);
 
   const current = words[index];
   const startFreeControl = (event) => {
-    if (paused || levelComplete || event.target.closest?.('button,.spell-ribbon,.feedback-card')) return;
+    if (paused || levelComplete || settingsOpen || event.target.closest?.('button,.spell-ribbon,.feedback-card')) return;
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
-    event.currentTarget.setPointerCapture(event.pointerId);
     clearTimeout(controlTimerRef.current);
-    setFreeControl({pointerId:event.pointerId,x:event.clientX-rect.left,y:event.clientY-rect.top,knobX:0,knobY:0,active:true});
-  };
-  const moveFreeControl = (event) => {
-    const previous = freeControl;
-    if (!previous || previous.pointerId !== event.pointerId || !previous.active) return previous;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const dx = event.clientX - rect.left - previous.x;
-    const dy = event.clientY - rect.top - previous.y;
-    const length = Math.hypot(dx,dy);
-    if (length > 9) {
-      if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 'right' : 'left'); else setDir(dy > 0 ? 'down' : 'up');
-    }
-    const scale = length > 70 ? 70 / length : 1;
-    setFreeControl({...previous,knobX:dx*scale,knobY:dy*scale});
-  };
-  const endFreeControl = (event) => {
-    setFreeControl(previous => previous?.pointerId === event.pointerId ? {...previous,active:false} : previous);
-    clearTimeout(controlTimerRef.current);
-    controlTimerRef.current = setTimeout(() => setFreeControl(null), 180);
+    const next = {pointerId:event.pointerId,x:event.clientX-rect.left,y:event.clientY-rect.top,originClientX:event.clientX,originClientY:event.clientY,knobX:0,knobY:0,active:true};
+    freeControlRef.current = next;
+    setFreeControl(next);
+    document.documentElement.classList.add('joystick-dragging');
   };
   return <main className="game-shell" style={{'--accent': world.color, '--soft': world.soft}}>
     <header className="game-header">
@@ -359,6 +418,7 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
       <div className="game-brand"><span>W</span><div><strong>{world.name}</strong><small>{isReview?'专属复习关':`第 ${levelIndex + 1} 关`} · {words.length} 个单词</small></div></div>
       <div className="progress-wrap"><div><span>{isReview?'复习进度':'本关进度'}</span><b>{done.length}<small>/{words.length}</small></b></div><div className="progress"><i style={{width:`${words.length ? done.length / words.length * 100 : 0}%`}}/></div></div>
       <button className="round-btn sound" onClick={() => setSoundOn(!soundOn)} aria-label="切换声音">{soundOn ? '♪' : '×'}</button>
+      <button className="round-btn game-settings" onClick={onOpenSettings} aria-label="打开总设置">⚙</button>
       <button className="pause-btn" onClick={() => setPaused(!paused)}>{paused ? '继续' : '暂停'}</button>
     </header>
     <div className="game-layout">
@@ -374,7 +434,7 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
         <div className="tiny-tip">💡 吃错不会重来：软糖蛇会吐掉错字母，并给你一点提示。</div>
       </aside>
       <section className="arena-wrap">
-        <div className={`arena ${feedback?.type || ''}`} onPointerDown={startFreeControl} onPointerMove={moveFreeControl} onPointerUp={endFreeControl} onPointerCancel={endFreeControl} onContextMenu={event=>event.preventDefault()} onDragStart={event=>event.preventDefault()}>
+        <div className={`arena ${feedback?.type || ''}`} onPointerDown={startFreeControl} onContextMenu={event=>event.preventDefault()} onDragStart={event=>event.preventDefault()}>
           <div className="arena-clouds" aria-hidden="true"><i/><i/><i/></div>
           <div className="spell-ribbon"><span>拼一拼</span><div>
             {current?.letters.split('').map((letter, i) => <b key={i} className={i < typed.length ? 'filled' : i === typed.length ? 'next' : ''}>{i < typed.length ? letter.toUpperCase() : '·'}</b>)}
@@ -388,13 +448,15 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
             {snake.slice().reverse().map((s, revI) => {
               const i = snake.length - 1 - revI; const head = i === 0;
               return <g key={i} transform={`translate(${s.x} ${s.y})`}>
-                <circle r={head ? 25 : Math.max(13, 22 - i * .28)} fill={head ? '#ff8e3c' : i % 2 ? '#47b98a' : '#68cf9d'} stroke="#fff" strokeWidth="4"/>
-                {head && <><circle cx="-8" cy="-5" r="4" fill="#263747"/><circle cx="8" cy="-5" r="4" fill="#263747"/><path d="M-7 8 Q0 14 8 7" fill="none" stroke="#263747" strokeWidth="3" strokeLinecap="round"/></>}
+                <g transform={head ? `rotate(${Math.atan2(direction.y,direction.x) * 180 / Math.PI})` : undefined}>
+                  <circle r={head ? 25 : Math.max(13, 22 - i * .28)} fill={head ? '#ff8e3c' : i % 2 ? '#47b98a' : '#68cf9d'} stroke="#fff" strokeWidth="4"/>
+                  {head && <><circle cx="8" cy="-8" r="4" fill="#263747"/><circle cx="8" cy="8" r="4" fill="#263747"/><path d="M16 -7 Q22 0 16 8" fill="none" stroke="#263747" strokeWidth="3" strokeLinecap="round"/></>}
+                </g>
               </g>;
             })}
           </svg>
           <FreeJoystick control={freeControl} direction={direction}/>
-          <div className="arena-instruction">在任意位置按住并拖动 · 或用键盘方向键</div>
+          <div className="arena-instruction">按住后可拖到界面任意位置 · 或用键盘方向键</div>
           {paused && <div className="pause-screen"><div>☁️</div><h2>休息一下</h2><button onClick={() => setPaused(false)}>继续游戏</button></div>}
           {feedback?.type === 'correct' && <div className="feedback-card" role="status" aria-live="polite"><span>太棒啦！</span><b>{feedback.word.word}</b><small>{feedback.word.pos} · {feedback.word.ipa}</small></div>}
           {feedback?.type === 'wrong' && <div className={`wrong-toast tier-${feedback.tier}`} role="status" aria-live="polite"><b>{feedback.tier === 1 ? '噗～这个字母还没轮到' : feedback.tier === 2 ? '看看正在发光的字母' : '正确字母在向你招手！'}</b><small>{feedback.tier === 1 ? '已经拼对的部分会保留' : feedback.tier === 2 ? '继续操控，不用重新开始' : '软糖蛇也暂时放慢啦'}</small></div>}
@@ -407,8 +469,9 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, onHome, onNex
 
 function FreeJoystick({ control, direction }) {
   if (!control) return null;
+  const angle = Math.atan2(direction.y, direction.x) * 180 / Math.PI;
   return <div className={`free-joystick ${control.active?'active':'releasing'}`} style={{left:control.x,top:control.y}} aria-hidden="true">
-    <span></span><i style={{transform:`translate(${control.knobX}px,${control.knobY}px)`}}>{direction==='up'?'↑':direction==='down'?'↓':direction==='left'?'←':'→'}</i>
+    <span></span><i style={{transform:`translate(${control.knobX}px,${control.knobY}px) rotate(${angle}deg)`}}>→</i>
   </div>;
 }
 
