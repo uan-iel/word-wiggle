@@ -3,6 +3,7 @@ import { WORLDS, VOCAB_STATS, toWord } from './data.js';
 import VocabAdmin from './VocabAdmin.jsx';
 import ReviewHub from './ReviewHub.jsx';
 import { learningSummary, loadLearningProgress, markWordMastered, recordWordCompletion, LEARNING_PROGRESS_KEY } from './learningProgress.js';
+import { measureDragMotion, resolveSnakeSpeed } from './dragControl.js';
 
 const W = 1000;
 const H = 650;
@@ -259,12 +260,22 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, speedMultipli
       const previous = freeControlRef.current;
       if (!previous || !previous.active || previous.pointerId !== event.pointerId) return;
       event.preventDefault();
-      const dx = event.clientX - previous.originClientX;
-      const dy = event.clientY - previous.originClientY;
-      const length = Math.hypot(dx,dy);
-      if (length > 9) setDir({x:dx,y:dy});
-      const scale = length > 70 ? 70 / length : 1;
-      const next = {...previous,knobX:dx*scale,knobY:dy*scale};
+      const now = performance.now();
+      const motion = measureDragMotion(previous, event, now, W, H);
+      const originDx = event.clientX - previous.originClientX;
+      const originDy = event.clientY - previous.originClientY;
+      const originDistance = Math.hypot(originDx, originDy);
+      if (motion.speed > 0) setDir(motion);
+      const scale = originDistance > 70 ? 70 / originDistance : 1;
+      const next = {
+        ...previous,
+        lastClientX:event.clientX,
+        lastClientY:event.clientY,
+        lastMoveAt:now,
+        dragSpeed:motion.speed,
+        knobX:originDx * scale,
+        knobY:originDy * scale,
+      };
       freeControlRef.current = next;
       setFreeControl(next);
     };
@@ -302,7 +313,9 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, speedMultipli
       lastTime = now;
       setSnake(prev => {
         const {x:dx, y:dy} = directionRef.current;
-        const distance = (slowMotion ? 52 : 82) * speedMultiplier * delta;
+        const control = freeControlRef.current;
+        const currentSpeed = resolveSnakeSpeed({control, now, slowMotion, speedMultiplier});
+        const distance = currentSpeed * delta;
         const raw = {x: prev[0].x + dx * distance, y: prev[0].y + dy * distance};
         const wrapped = raw.x < 20 || raw.x > W - 20 || raw.y < 20 || raw.y > H - 20;
         const head = {x: raw.x < 20 ? W - 20 : raw.x > W - 20 ? 20 : raw.x, y: raw.y < 20 ? H - 20 : raw.y > H - 20 ? 20 : raw.y};
@@ -407,7 +420,24 @@ function Game({ world, overrides, levelIndex, soundOn, setSoundOn, speedMultipli
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
     clearTimeout(controlTimerRef.current);
-    const next = {pointerId:event.pointerId,x:event.clientX-rect.left,y:event.clientY-rect.top,originClientX:event.clientX,originClientY:event.clientY,knobX:0,knobY:0,active:true};
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const now = performance.now();
+    const next = {
+      pointerId:event.pointerId,
+      x:event.clientX-rect.left,
+      y:event.clientY-rect.top,
+      originClientX:event.clientX,
+      originClientY:event.clientY,
+      lastClientX:event.clientX,
+      lastClientY:event.clientY,
+      lastMoveAt:now,
+      arenaWidth:rect.width,
+      arenaHeight:rect.height,
+      dragSpeed:0,
+      knobX:0,
+      knobY:0,
+      active:true,
+    };
     freeControlRef.current = next;
     setFreeControl(next);
     document.documentElement.classList.add('joystick-dragging');
