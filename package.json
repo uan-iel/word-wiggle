@@ -8,6 +8,7 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "test": "node --test",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "build:mac": "npm run build && electron-builder --mac dmg --universal --publish never",
